@@ -1,0 +1,10 @@
+node_modules
+build
+.env
+.env.*
+*.tsbuildinfo
+.git
+.gitignore
+README.md
+CLAUDE.md
+DEPLOY.md

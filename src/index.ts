@@ -1,4 +1,7 @@
 import express from 'express';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
@@ -29,6 +32,37 @@ if (!GARMIN_EMAIL || !GARMIN_PASSWORD) {
   );
   process.exit(1);
 }
+
+function materializeTokensFromEnv(): void {
+  const tokenDir = path.join(os.homedir(), '.garmin-mcp');
+  const files: Array<{ env: string; name: string }> = [
+    { env: 'GARMIN_OAUTH1_TOKEN_B64', name: 'oauth1_token.json' },
+    { env: 'GARMIN_OAUTH2_TOKEN_B64', name: 'oauth2_token.json' },
+    { env: 'GARMIN_PROFILE_B64', name: 'profile.json' },
+  ];
+
+  let written = 0;
+  for (const { env, name } of files) {
+    const b64 = process.env[env];
+    if (!b64) continue;
+    if (!fs.existsSync(tokenDir)) {
+      fs.mkdirSync(tokenDir, { recursive: true, mode: 0o700 });
+    }
+    try {
+      const decoded = Buffer.from(b64, 'base64').toString('utf-8');
+      JSON.parse(decoded);
+      fs.writeFileSync(path.join(tokenDir, name), decoded, { mode: 0o600 });
+      written++;
+    } catch (err) {
+      console.error(`Failed to materialize ${name} from ${env}:`, err);
+    }
+  }
+  if (written > 0) {
+    console.error(`Materialized ${written} Garmin token file(s) from env vars`);
+  }
+}
+
+materializeTokensFromEnv();
 
 const garminClient = new GarminClient(GARMIN_EMAIL, GARMIN_PASSWORD);
 
